@@ -1,0 +1,223 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            String    @id @default(cuid())
+  name          String?
+  email         String    @unique
+  password      String?
+  image         String?
+  emailVerified DateTime?
+  role          String    @default("customer") // customer | admin
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  orders       Order[]
+  wishlistItems WishlistItem[]
+  cartItems    CartItem[]
+  reviews      Review[]
+
+  accounts Account[]
+  sessions Session[]
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+model Category {
+  id   String @id @default(cuid())
+  name String @unique
+  slug String @unique
+
+  products Product[]
+}
+
+model Product {
+  id          String   @id @default(cuid())
+  title       String
+  slug        String   @unique
+  description String
+  price       Int      // stored in kobo (₦1 = 100 kobo)
+  discount    Int      @default(0) // percentage 0-100
+  stock       Int      @default(0)
+  rating      Float    @default(0)
+  reviewCount Int      @default(0)
+  isActive    Boolean  @default(true)
+  isFlashSale Boolean  @default(false)
+  isBestSeller Boolean @default(false)
+  isNewArrival Boolean @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  categoryId String
+  category   Category @relation(fields: [categoryId], references: [id])
+
+  images    ProductImage[]
+  sizes     ProductSize[]
+  colors    ProductColor[]
+  reviews   Review[]
+  cartItems CartItem[]
+  wishlistItems WishlistItem[]
+  orderItems OrderItem[]
+}
+
+model ProductImage {
+  id        String  @id @default(cuid())
+  url       String
+  alt       String?
+  sortOrder Int     @default(0)
+
+  productId String
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+}
+
+model ProductSize {
+  id     String @id @default(cuid())
+  size   String // S, M, L, XL, XXL, 38, 40, 42, etc.
+  stock  Int    @default(0)
+
+  productId String
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@unique([productId, size])
+}
+
+model ProductColor {
+  id    String @id @default(cuid())
+  color String // Red, Black, White, etc.
+  hex   String // #FF0000
+
+  productId String
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@unique([productId, color])
+}
+
+model CartItem {
+  id       String @id @default(cuid())
+  quantity Int    @default(1)
+  size     String?
+  color    String?
+
+  userId    String?
+  sessionId String? // for guest users
+  productId String
+
+  user    User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  product Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@unique([userId, productId, size, color])
+}
+
+model WishlistItem {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+
+  userId    String
+  productId String
+
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, productId])
+}
+
+model Order {
+  id          String   @id @default(cuid())
+  orderNumber String   @unique
+  status      String   @default("pending") // pending, paid, shipped, delivered, cancelled
+  subtotal    Int      // in kobo
+  deliveryFee Int      @default(150000) // ₦1,500 in kobo
+  total       Int      // in kobo
+  paidAt      DateTime?
+
+  // Shipping info
+  name        String
+  email       String
+  phone       String
+  address     String
+  city        String
+  state       String
+
+  // Paystack
+  paystackReference String?
+  paystackStatus    String?
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  userId String?
+  user   User?   @relation(fields: [userId], references: [id])
+
+  items OrderItem[]
+}
+
+model OrderItem {
+  id       String @id @default(cuid())
+  quantity Int    @default(1)
+  price    Int    // price at time of order (kobo)
+  size     String?
+  color    String?
+
+  orderId   String
+  order     Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  productId String
+  product   Product @relation(fields: [productId], references: [id])
+
+  @@unique([orderId, productId, size, color])
+}
+
+model Review {
+  id       String   @id @default(cuid())
+  rating   Int      // 1-5
+  comment  String?
+  createdAt DateTime @default(now())
+
+  userId    String
+  user      User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  productId String
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, productId])
+}
