@@ -1,0 +1,12 @@
+node_modules/
+.next/
+out/
+.env
+.env.local
+.env*.local
+prisma/*.db
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+npm-debug.log*
